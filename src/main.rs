@@ -12,6 +12,8 @@ use byteorder::LittleEndian;
 mod parsers;
 mod type_parsers;
 mod types;
+mod util;
+
 use parsers::*;
 use types::OpCodes;
 
@@ -34,13 +36,13 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn vec_u8_to_u32(vec8: &Vec<u8>) -> Vec<u32> {
+pub fn vec_u8_to_u32(vec8: &Vec<u8>) -> Vec<u32> {
     let mut vec32: Vec<u32> = vec![0; vec8.len() / 4];
     LittleEndian::read_u32_into(&vec8, &mut vec32);
     return vec32;
 }
 
-fn parse_opcode(opcode_word: u32) -> (u16, usize) {
+pub fn parse_opcode(opcode_word: u32) -> (u16, usize) {
     const LOW_BITS_MASK: u32 = 0x0000ffff;
     const HIGH_BITS_MASK: u32 = 0xffff0000;
 
@@ -50,7 +52,7 @@ fn parse_opcode(opcode_word: u32) -> (u16, usize) {
     return (op_code as u16, op_length_words as usize);
 }
 
-fn debug_hex_output(buf: &Vec<u32>) {
+pub fn debug_hex_output(buf: &Vec<u32>) {
     for op in buf {
         let hex = format!("{:x}", *op);
         let letters: [u8; 4] = unsafe { std::mem::transmute(op.to_le()) };
@@ -62,7 +64,7 @@ fn debug_hex_output(buf: &Vec<u32>) {
     }
 }
 
-fn check_magic(buf: &Vec<u32>) -> anyhow::Result<()> {
+pub fn check_magic(buf: &Vec<u32>) -> anyhow::Result<()> {
     const SPIRV_MAGIC: u32 = 0x07230203;
 
     if buf[0] != SPIRV_MAGIC {
@@ -72,12 +74,12 @@ fn check_magic(buf: &Vec<u32>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn extract_result_id(buf: &OpCodeUnparsed) -> u32 {
+pub fn extract_result_id(buf: &OpCodeUnparsed) -> u32 {
     let opcodes_with_result: HashMap<OpCodes, usize> = HashMap::from([
         (OpCodes::OpVariable, 2),
         (OpCodes::OpTypePointer, 1),
         (OpCodes::OpTypeStruct, 1),
-        (OpCodes::OpTypeRuntimeArray, 1),
+        // (OpCodes::OpTypeRuntimeArray, 1),
         (OpCodes::OpTypeArray, 1),
         (OpCodes::OpTypeSampledImage, 1),
         (OpCodes::OpTypeSampler, 1),
@@ -100,7 +102,7 @@ fn extract_result_id(buf: &OpCodeUnparsed) -> u32 {
     }
 }
 
-fn split_by_opcodes(buf: &Vec<u32>) -> Vec<OpCodeUnparsed> {
+pub fn split_by_opcodes(buf: &Vec<u32>) -> Vec<OpCodeUnparsed> {
     let mut by_opcodes: Vec<OpCodeUnparsed> = Vec::new();
 
     // skip the rest of the file header
@@ -118,9 +120,6 @@ fn split_by_opcodes(buf: &Vec<u32>) -> Vec<OpCodeUnparsed> {
             let (opcode, opcode_length) = parse_opcode(buf[current_index]);
             // println!("[{op_shader_index}] {opcode}, {opcode_length}");
 
-            if opcode == 19 {
-                print!("sdffdg");
-            }
             current_opcode_unparsed.data.push(buf[current_index]);
             current_opcode_unparsed.opcode = opcode;
             current_opcode_unparsed.length = opcode_length;

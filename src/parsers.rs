@@ -1,31 +1,9 @@
 use num_derive::FromPrimitive;
 
-use crate::types::{OpTypePointer, IsOpcode, OpVariable, OpEntryPoint};
-
-fn parse_string(slice: &[u32]) -> (String, usize) {
-    // find the end (\0)
-    let mut temp_data = Vec::<u32>::new();
-
-    for word in slice {
-        temp_data.push(*word);
-        if *word == 0 {
-            break;
-        }
-    }
-
-    let temp_data_ptr = temp_data.as_ptr() as *const u8;
-    let temp_data_len = temp_data.len() * 4;
-
-    let mut data = vec![0; temp_data_len];
-
-    unsafe {
-        std::ptr::copy_nonoverlapping(temp_data_ptr, data.as_mut_ptr(), temp_data_len);
-    }
-
-    let output_string = std::str::from_utf8(&data).unwrap();
-
-    return (output_string.to_string(), temp_data.len());
-}
+use crate::{
+    types::{IsOpcode, OpEntryPoint, OpTypePointer, OpVariable, OpTypeWrapper},
+    util::{lookup_and_parse, parse_string},
+};
 
 pub trait ParseOpCode<T> {
     fn parse_into(opcode: &OpCodeUnparsed, by_opcodes: &Vec<OpCodeUnparsed>) -> T;
@@ -39,21 +17,6 @@ pub struct OpCodeUnparsed {
     pub data: Vec<u32>,
 }
 
-pub trait OpCodeUnparsedResultIdLookupHelper {
-    fn result_id_lookup(&self, id: u32) -> Option<&OpCodeUnparsed>;
-}
-
-impl OpCodeUnparsedResultIdLookupHelper for Vec<OpCodeUnparsed> {
-    fn result_id_lookup(&self, id: u32) -> Option<&OpCodeUnparsed> {
-        if id == 0 {
-            return None;
-        } else {
-            let res = self.iter().find(|v| v.result_id == id);
-            return res;
-        }
-    }
-}
-
 impl ParseOpCode<OpTypePointer> for OpCodeUnparsed {
     fn parse_into(opcode: &OpCodeUnparsed, by_opcodes: &Vec<OpCodeUnparsed>) -> OpTypePointer {
         if opcode.opcode != OpTypePointer::opcode() as u16 {
@@ -62,7 +25,7 @@ impl ParseOpCode<OpTypePointer> for OpCodeUnparsed {
             OpTypePointer {
                 result_id: opcode.data[1],
                 storage_class: num::FromPrimitive::from_u32(opcode.data[2]).unwrap(),
-                type_id: opcode.data[3],
+                type_id: lookup_and_parse::<OpTypeWrapper>(opcode.data[3], by_opcodes),
             }
         }
     }
@@ -73,11 +36,7 @@ impl ParseOpCode<OpVariable> for OpCodeUnparsed {
         if opcode.opcode != OpVariable::opcode() as u16 {
             panic!("Yeet");
         } else {
-            let pointer_unparsed = by_opcodes.result_id_lookup(opcode.data[1]).unwrap();
-            let pointer: OpTypePointer = <OpCodeUnparsed as ParseOpCode<OpTypePointer>>::parse_into(
-                &pointer_unparsed,
-                by_opcodes,
-            );
+            let pointer = lookup_and_parse::<OpTypePointer>(opcode.data[1], by_opcodes);
 
             // TODO: Initializer id
             OpVariable {
@@ -99,15 +58,7 @@ impl ParseOpCode<OpEntryPoint> for OpCodeUnparsed {
             let slic = &opcode.data[3 + name_length_words..];
             let interfaces: Vec<OpVariable> = slic
                 .iter()
-                .map(|v| -> OpVariable {
-                    let interface_opcode = by_opcodes.result_id_lookup(*v).unwrap();
-                    let interface_parsed: OpVariable = <OpCodeUnparsed as ParseOpCode<
-                        OpVariable,
-                    >>::parse_into(
-                        interface_opcode, by_opcodes
-                    );
-                    interface_parsed
-                })
+                .map(|v| -> OpVariable { lookup_and_parse::<OpVariable>(*v, by_opcodes) })
                 .collect();
             OpEntryPoint {
                 execution_model: num::FromPrimitive::from_u32(opcode.data[1]).unwrap(),
