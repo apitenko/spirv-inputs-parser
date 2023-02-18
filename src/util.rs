@@ -1,3 +1,5 @@
+use byteorder::{LittleEndian, ByteOrder};
+
 use crate::parsers::{OpCodeUnparsed, ParseOpCode};
 
 pub trait OpCodeUnparsedResultIdLookupHelper {
@@ -42,16 +44,19 @@ pub fn parse_string(slice: &[u32]) -> (String, usize) {
         }
     }
 
-    let temp_data_ptr = temp_data.as_ptr() as *const u8;
-    let temp_data_len = temp_data.len() * 4;
-
-    let mut data = vec![0; temp_data_len];
-
-    unsafe {
-        std::ptr::copy_nonoverlapping(temp_data_ptr, data.as_mut_ptr(), temp_data_len);
-    }
-
+    let data = vec_u32_to_u8(&temp_data);
     let output_string = std::str::from_utf8(&data).unwrap();
-
     return (output_string.to_string(), temp_data.len());
+}
+
+pub fn vec_u8_to_u32(vec8: &Vec<u8>) -> Vec<u32> {
+    let mut vec32: Vec<u32> = vec![0; vec8.len() / 4];
+    LittleEndian::read_u32_into(&vec8, &mut vec32);
+    return vec32;
+}
+
+pub fn vec_u32_to_u8(vec32: &Vec<u32>) -> Vec<u8> {
+    let mut vec8: Vec<u8> = vec![0; vec32.len() * 4];
+    byteorder::LittleEndian::write_u32_into(&vec32, &mut vec8);
+    return vec8;
 }

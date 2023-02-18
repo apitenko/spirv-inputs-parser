@@ -2,33 +2,8 @@ use std::rc::Rc;
 
 use num_derive::FromPrimitive;
 
-#[derive(FromPrimitive, Debug)]
-pub enum ExecutionModel {
-    Vertex = 0,
-    TessellationControl = 1,
-    TessellationEvaluation = 2,
-    Geometry = 3,
-    Fragment = 4,
-    GLCompute = 5,
-    Kernel = 6,
-}
+use crate::output::{StorageClass, ExecutionModel};
 
-#[derive(FromPrimitive, Debug)]
-pub enum StorageClass {
-    UniformConstant = 0,
-    Input = 1,
-    Uniform = 2,
-    Output = 3,
-    Workgroup = 4,
-    CrossWorkgroup = 5,
-    Private = 6,
-    Function = 7,
-    Generic = 8,
-    PushConstant = 9,
-    AtomicCounter = 10,
-    Image = 11,
-    StorageBuffer = 12,
-}
 
 pub trait IsOpcode {
     fn opcode() -> OpCodes;

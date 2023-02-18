@@ -1,23 +1,20 @@
 use std::{
     collections::HashMap,
-    error::Error,
-    fmt::format,
     fs::File,
     io::{BufReader, Read},
 };
-
-use byteorder::ByteOrder;
-use byteorder::LittleEndian;
 
 mod parsers;
 mod type_parsers;
 mod types;
 mod util;
+mod output;
 
+use output::{prepare_output, ShaderMetaInfo};
 use parsers::*;
 use types::OpCodes;
 
-use crate::types::OpEntryPoint;
+use crate::{types::OpEntryPoint, util::vec_u8_to_u32};
 
 fn main() -> anyhow::Result<()> {
     println!("---------------------!");
@@ -36,13 +33,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn vec_u8_to_u32(vec8: &Vec<u8>) -> Vec<u32> {
-    let mut vec32: Vec<u32> = vec![0; vec8.len() / 4];
-    LittleEndian::read_u32_into(&vec8, &mut vec32);
-    return vec32;
-}
-
-pub fn parse_opcode(opcode_word: u32) -> (u16, usize) {
+fn parse_opcode(opcode_word: u32) -> (u16, usize) {
     const LOW_BITS_MASK: u32 = 0x0000ffff;
     const HIGH_BITS_MASK: u32 = 0xffff0000;
 
@@ -52,19 +43,19 @@ pub fn parse_opcode(opcode_word: u32) -> (u16, usize) {
     return (op_code as u16, op_length_words as usize);
 }
 
-pub fn debug_hex_output(buf: &Vec<u32>) {
-    for op in buf {
-        let hex = format!("{:x}", *op);
-        let letters: [u8; 4] = unsafe { std::mem::transmute(op.to_le()) };
-        let ascii = letters.map(|v| v as char);
-        print!(
-            "0x{} - {}{}{}{}\n",
-            hex, ascii[0], ascii[1], ascii[2], ascii[3],
-        );
-    }
-}
+// fn debug_hex_output(buf: &Vec<u32>) {
+//     for op in buf {
+//         let hex = format!("{:x}", *op);
+//         let letters: [u8; 4] = unsafe { std::mem::transmute(op.to_le()) };
+//         let ascii = letters.map(|v| v as char);
+//         print!(
+//             "0x{} - {}{}{}{}\n",
+//             hex, ascii[0], ascii[1], ascii[2], ascii[3],
+//         );
+//     }
+// }
 
-pub fn check_magic(buf: &Vec<u32>) -> anyhow::Result<()> {
+fn check_magic(buf: &Vec<u32>) -> anyhow::Result<()> {
     const SPIRV_MAGIC: u32 = 0x07230203;
 
     if buf[0] != SPIRV_MAGIC {
@@ -74,7 +65,7 @@ pub fn check_magic(buf: &Vec<u32>) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn extract_result_id(buf: &OpCodeUnparsed) -> u32 {
+fn extract_result_id(buf: &OpCodeUnparsed) -> u32 {
     let opcodes_with_result: HashMap<OpCodes, usize> = HashMap::from([
         (OpCodes::OpVariable, 2),
         (OpCodes::OpTypePointer, 1),
@@ -102,7 +93,7 @@ pub fn extract_result_id(buf: &OpCodeUnparsed) -> u32 {
     }
 }
 
-pub fn split_by_opcodes(buf: &Vec<u32>) -> Vec<OpCodeUnparsed> {
+fn split_by_opcodes(buf: &Vec<u32>) -> Vec<OpCodeUnparsed> {
     let mut by_opcodes: Vec<OpCodeUnparsed> = Vec::new();
 
     // skip the rest of the file header
@@ -162,11 +153,14 @@ fn extract_entry_point(by_opcodes: &Vec<OpCodeUnparsed>) -> anyhow::Result<OpEnt
     Ok(entry_parsed)
 }
 
-fn parse_spirv_inputs(buf: &Vec<u32>) -> anyhow::Result<()> {
+pub fn parse_spirv_inputs(buf: &Vec<u32>) -> anyhow::Result<ShaderMetaInfo> {
     check_magic(buf)?;
     let by_opcodes = split_by_opcodes(buf);
-    let entry = extract_entry_point(&by_opcodes);
+    let entry = extract_entry_point(&by_opcodes)?;
     // println!("buf {:?}", &by_opcodes[0..6]);
+    
+    let output = prepare_output(&entry);
 
-    return Ok(());
+    println!("{:?}", output);
+    Ok(output)
 }
