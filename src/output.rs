@@ -1,8 +1,8 @@
-use crate::types::{OpEntryPoint, OpTypeWrapper};
-
 // TODO: design the API better
 
 use num_derive::FromPrimitive;
+
+use crate::types::variables::{OpTypeWrapper, OpEntryPoint};
 
 #[derive(FromPrimitive, Debug, Clone, Copy)]
 pub enum ExecutionModel {

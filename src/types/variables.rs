@@ -2,8 +2,7 @@ use std::rc::Rc;
 
 use num_derive::FromPrimitive;
 
-use crate::output::{StorageClass, ExecutionModel};
-
+use crate::output::{ExecutionModel, StorageClass};
 
 pub trait IsOpcode {
     fn opcode() -> OpCodes;
@@ -68,6 +67,8 @@ pub enum OpCodes {
     OpTypeStruct = 30,
     OpTypePointer = 32,
     OpVariable = 59,
+    OpDecorate = 71,
+    OpMemberDecorate = 72,
 }
 
 impl From<u16> for OpCodes {
